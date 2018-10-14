@@ -7,50 +7,51 @@ import (
 	"github.com/skanehira/mockapi/app/config"
 	"github.com/skanehira/mockapi/app/db"
 	"github.com/skanehira/mockapi/app/server"
+	"github.com/skanehira/mockapi/app/view"
 )
 
 type App struct {
-	AppDir string
-	Config *config.Config
-	Server *server.Server
+	dir    string
+	server *server.Server
+	view   *view.View
 }
 
 func New() *App {
-	app := &App{}
-
-	return app.createAppDir().
-		newConfig().
-		newServer()
+	return &App{}
 }
 
-func (a *App) createAppDir() *App {
-	appDir := filepath.Join(os.Getenv("HOME"), ".mockapi")
-	if _, err := os.Stat(appDir); os.IsNotExist(err) {
-		os.Mkdir(appDir, 0777)
+func (app *App) Setup() {
+	dir := app.createAppDir()
+
+	config := config.New(filepath.Join(dir, "config.yaml"))
+	db := db.New(config.DB.DBType, filepath.Join(dir, "mockapi.db"), config.DB.LogMode)
+
+	// TODO 引数でmigrateする
+	db.Migration()
+
+	//app.server = server.New(db, config)
+	app.view = view.New(db, config)
+	app.view.Setup()
+}
+
+func (a *App) createAppDir() string {
+	homeDir := os.Getenv("HOME")
+	if homeDir == "" {
+		panic("Undefined Enviroment $HOME")
 	}
 
-	a.AppDir = appDir
-	return a
-}
+	dir := filepath.Join(homeDir, ".mockapi")
 
-func (a *App) newConfig() *App {
-	a.Config = config.New(filepath.Join(a.AppDir, "config.yaml"))
-	return a
-}
-
-func (a *App) newDB() *db.DB {
-	c := a.Config.DB
-	return db.New(c.DBType, filepath.Join(a.AppDir, "mockapi.db"), c.LogMode)
-}
-
-func (a *App) newServer() *App {
-	c := a.Config
-	a.Server = server.New(c.Protocol, c.Address, c.Port, c.CertFile, c.CertKeyFile, a.newDB())
-	return a
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		os.Mkdir(dir, 0777)
+	}
+	return dir
 }
 
 func (a *App) Run() {
-	a.Server.Run()
+	//go a.server.Run()
 
-	// TODO run panel
+	if err := a.view.Run(); err != nil {
+		panic(err)
+	}
 }

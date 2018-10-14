@@ -1,7 +1,9 @@
 package db
 
 import (
+	"errors"
 	"os"
+	"strings"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
@@ -35,6 +37,23 @@ func New(dbType, file string, logMode bool) *DB {
 	return db
 }
 
-func (d *DB) Migration() {
+func (db *DB) Migration() error {
+	var errs []string
 
+	models := []interface{}{
+		&Endpoint{},
+		&History{},
+		&Request{},
+	}
+	for _, model := range models {
+		if err := db.AutoMigrate(model).Error; err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+
+	if len(errs) != 0 {
+		return errors.New(strings.Join(errs, "\n"))
+	}
+
+	return nil
 }

@@ -2,9 +2,9 @@ package db
 
 // History request and response history
 type History struct {
-	ID       string
-	Endpoint *Endpoint
-	Request  *Request
+	ID         string
+	EndpointID string
+	RequestID  string
 }
 
 // SaveHistory save history info to database

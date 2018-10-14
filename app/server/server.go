@@ -7,18 +7,16 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/skanehira/mockapi/app/common"
+	"github.com/skanehira/mockapi/app/config"
 	"github.com/skanehira/mockapi/app/db"
 )
 
 type Server struct {
-	protocol    string
-	address     string
-	port        string
-	certFile    string
-	certKeyFile string
-	db          *db.DB
+	db     *db.DB
+	config *config.Config
 	net.Listener
 	http.Server
 }
@@ -28,19 +26,15 @@ type ErrResponse struct {
 	Message string `json:"message"`
 }
 
-func New(protocol, address, port, certFile, certKeyFile string, db *db.DB) *Server {
+func New(db *db.DB, c *config.Config) *Server {
 	return &Server{
-		protocol:    protocol,
-		address:     address,
-		port:        port,
-		certFile:    certFile,
-		certKeyFile: certKeyFile,
-		db:          db,
+		config: c,
+		db:     db,
 	}
 }
 
 func (s *Server) Run() {
-	switch s.protocol {
+	switch s.config.Protocol {
 	case "http":
 		s.start()
 	case "https":
@@ -60,11 +54,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.NewResponse(w, end.ResponseHeaders, end.ResponseStatus, end.ResponseBody)
 }
 
-func (s *Server) NewResponse(w http.ResponseWriter, headers map[string]string, status int, body string) {
-	if len(headers) != 0 {
-		for key, value := range headers {
-			w.Header().Set(key, value)
-		}
+func (s *Server) NewResponse(w http.ResponseWriter, headers string, status int, body string) {
+	for _, header := range strings.Split(headers, "\n") {
+		kv := strings.Split(header, ":")
+		w.Header().Set(kv[0], kv[1])
 	}
 
 	w.WriteHeader(status)
@@ -106,19 +99,28 @@ func (s *Server) GetEndpoint(url, method string) (*db.Endpoint, error) {
 	return endpoint, nil
 }
 
+func (s *Server) GetEndpointList() ([]*db.Endpoint, error) {
+	endpointList, err := s.db.FindEndpointList()
+	if err != nil {
+		return nil, err
+	}
+
+	return endpointList, nil
+}
+
 func (s *Server) newTLSlistener() {
 	tlsConfig := new(tls.Config)
 	tlsConfig.Certificates = make([]tls.Certificate, 1)
 
 	var err error
-	tlsConfig.Certificates[0], err = tls.LoadX509KeyPair(s.certFile, s.certKeyFile)
+	tlsConfig.Certificates[0], err = tls.LoadX509KeyPair(s.config.CertFile, s.config.CertKeyFile)
 	if err != nil {
 		panic(common.NewErrLoadTLSFiles(err))
 	}
 
 	tlsConfig.BuildNameToCertificate()
 
-	listener, err := tls.Listen("tcp", s.port, tlsConfig)
+	listener, err := tls.Listen("tcp", s.config.Port, tlsConfig)
 	if err != nil {
 		panic(common.NewErrListenServer(err))
 	}
@@ -127,12 +129,12 @@ func (s *Server) newTLSlistener() {
 }
 
 func (s *Server) start() {
-	log.Printf("start http server in %s\n", s.port)
-	log.Fatal(http.ListenAndServe(s.port, s))
+	log.Printf("start http server in %s\n", s.config.Port)
+	log.Fatal(http.ListenAndServe(s.config.Port, s))
 }
 
 func (s *Server) startTLS() {
 	s.newTLSlistener()
-	log.Printf("start https server in %s\n", s.port)
+	log.Printf("start https server in %s\n", s.config.Port)
 	log.Fatal(s.Serve(s.Listener))
 }

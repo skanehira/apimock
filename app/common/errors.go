@@ -6,13 +6,17 @@ import (
 )
 
 var (
-	ErrNotFoundEndpoint = errors.New("Not found endponit")
+	ErrNotFoundEndpoint = errors.New("not found endponit")
 	ErrLoadConfig       = errors.New("failed to Load config")
 	ErrConnectDB        = errors.New("failed to Connect database")
 	ErrLoadTLSFiles     = errors.New("failed to load cert file or cert key file")
 	ErrListenServer     = errors.New("failed to listen server")
 	ErrCreateDir        = errors.New("failed to make dir")
+	ErrAlreadyEndpoint  = errors.New("endpoint is already registed")
 )
+
+type Errors struct {
+}
 
 func NewError(err error, cause interface{}) error {
 	return fmt.Errorf("%s: %s", err, cause)

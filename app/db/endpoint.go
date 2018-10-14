@@ -1,28 +1,30 @@
 package db
 
 import (
-	"log"
 	"time"
+
+	"github.com/jinzhu/gorm"
+	"github.com/skanehira/mockapi/app/common"
 )
 
 // Endpoint endpoint info
 type Endpoint struct {
 	ID              string
-	URL             string
-	Method          string
-	ResponseBody    string
-	ResponseHeaders map[string]string
+	URL             string `gorm:"primary_key"`
+	Method          string `gorm:"primary_key"`
+	Description     string
 	ResponseStatus  int
+	ResponseHeaders string
+	ResponseBody    string
 	HistoryID       string
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	DeletedAt       *time.Time `sql:"index"`
 }
 
-// SaveEndpoint save endpoint to database
+// SaveEndpoint creat new endpoint
 func (d *DB) RegistEndpoint(endpoint *Endpoint) error {
 	if err := d.Create(endpoint).Error; err != nil {
-		log.Println(err)
 		return err
 	}
 
@@ -46,6 +48,13 @@ func (d *DB) FindEndpoint(url, method string) (*Endpoint, error) {
 // GetEndpointList get endpoints info list
 func (d *DB) FindEndpointList() ([]*Endpoint, error) {
 	var list []*Endpoint
-	list = append(list, &Endpoint{})
+
+	if err := d.Model(&Endpoint{}).Scan(&list).Error; err != nil {
+		if gorm.IsRecordNotFoundError(err) {
+			err = common.NewErrNotFoundEndpoint(err)
+		}
+		return list, err
+	}
+
 	return list, nil
 }
