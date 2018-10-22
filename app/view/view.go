@@ -101,14 +101,17 @@ func (v *View) SetKeybinding() {
 
 	v.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Rune() {
-		case 'l':
-			v.active = (v.active + 1) % len(v.panels)
-			v.SetFocus(panels[v.active])
 		case 'h':
-			v.active = (v.active - 1) % len(v.panels)
-			v.SetFocus(panels[v.active])
+			v.active = (v.active + 1) % len(v.panels)
+		case 'l':
+			if v.active-1 < 0 {
+				v.active = len(v.panels) - 1
+			} else {
+				v.active = (v.active - 1) % len(v.panels)
+			}
 		}
 
+		v.SetFocus(panels[v.active])
 		return event
 	})
 }
